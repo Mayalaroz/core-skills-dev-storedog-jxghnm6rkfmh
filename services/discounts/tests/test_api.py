@@ -47,6 +47,35 @@ def test_get_discounts_success(client, mock_discount_factory):
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize(
+    "limit, expected_count",
+    [
+        ("5", 5),
+        (None, 10),
+        ("", 10),
+        ("invalid", 10),
+        ("5.5", 10),
+        ("0", 0),
+        ("20", 12),
+    ],
+)
+def test_get_discounts_limit(client, mock_discount_factory, limit, expected_count):
+    """Apply integer limits and default to ten for missing or invalid values."""
+    discounts = [mock_discount_factory(id=i) for i in range(1, 13)]
+    with patch("discounts.Discount") as mock_discount_class:
+        mock_discount_class.query.all.return_value = discounts
+
+        query_string = {} if limit is None else {"limit": limit}
+        response = client.get("/discount", query_string=query_string)
+
+        assert response.status_code == 200
+        assert response.content_type == "application/json"
+        assert [discount["id"] for discount in response.get_json()] == list(
+            range(1, expected_count + 1)
+        )
+
+
+@pytest.mark.unit
 def test_post_discount_success(client, mock_discount_factory):
     """
     Test POST /discount creates a new discount and returns updated list.
